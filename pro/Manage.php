@@ -1,0 +1,115 @@
+<?php
+    session_start();
+    if (!isset($_SESSION['user_id'])) {
+        header("Location: login.php");
+        exit();
+    }
+    include "connect.php";
+?>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="Creat.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <title>Home</title>
+</head>
+    <body>
+    <div class="sidebar">
+        <h2>MENU</h2>
+        <a href="index.php"><i class="fas fa-eye"></i> Preview</a>
+        <a href="Create.php"><i class="fas fa-plus"></i> Create</a>
+        <a href="Manage.php"><i class="fas fa-edit"></i> Checkin</a>
+        <a href="joinstatement.php"><i class="fas fa-users"></i> Join</a>
+        <a href="statistics.php"><i class="fas fa-chart-bar"></i> Statistics</a>
+        <a href="logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a>
+    </div>
+    <?php
+    $userid = $_SESSION['user_id'];
+    $accept ="approved";
+    $pending ="pending";
+    $sql = "SELECT * FROM events WHERE user_id = ?";
+    $stmt = $connect->prepare($sql);
+    $stmt -> bind_param('i',$userid);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    if ($result->num_rows > 0) {
+        $cardIndex = 0;
+        while ($row = $result->fetch_assoc()) {
+            $event_id =$row['eventid'];
+            
+            echo "<div class='event-card'>";
+
+            $images = explode(",", $row['image']);
+
+            echo "<div class='image-slider'>";
+            echo "<div class='image-container' id='image-container-{$cardIndex}'>";
+            foreach ($images as $image) {
+                if (!empty($image)) {
+                    echo "<img src='" . htmlspecialchars($image) . "' alt='Event Image'>";
+                }
+            }
+            echo "</div>";
+
+            if (count(array_filter($images)) > 1) {
+                echo "<button class='nav-btn prev-btn' onclick='scrollImages({$cardIndex}, -1)'><</button>";
+                echo "<button class='nav-btn next-btn' onclick='scrollImages({$cardIndex}, 1)'>></button>";
+            }
+            echo "</div>";
+            echo "<h3>" . htmlspecialchars($row['event_name']) . "</h3>";
+            echo "<p><strong>Date:</strong> " . htmlspecialchars($row['date']) . "</p>";
+            echo "<p><strong>Location:</strong> " . htmlspecialchars($row['location']) . "</p>";
+            $sqlcount = "SELECT COUNT(*) AS total FROM status WHERE event_id = ? AND status = ?";
+            $stmt_count = $connect->prepare($sqlcount);
+            $stmt_count ->bind_param("is",$event_id,$accept);
+            $stmt_count ->execute();
+            $resultcount = $stmt_count->get_result();
+            $rowcount = $resultcount -> fetch_assoc();
+            echo "<p><strong>Limit:</strong> " . htmlspecialchars($rowcount['total']) ."/" . htmlspecialchars($row['limits']) . "</p>";
+            $sqlcountp = "SELECT COUNT(*) AS ptotal FROM status WHERE event_id = ? AND status = ?";
+            $stmt_countp = $connect->prepare($sqlcountp);
+            $stmt_countp ->bind_param("is",$event_id,$pending);
+            $stmt_countp ->execute();
+            $resultcountp = $stmt_countp->get_result();
+            $rowcountp = $resultcountp -> fetch_assoc();
+            echo "<p><strong>Pending:</strong> " . htmlspecialchars($rowcountp['ptotal']). "</p>";
+            echo "<div class='event-actions'>";
+            echo "<a href='check.php?id=" . htmlspecialchars($event_id) . "'><button class='edit-btn'>check</button></a>";
+            echo "</div>";
+            echo "</div>";
+            $cardIndex++;
+        }
+    } else {
+        echo "<p style='text-align: center; grid-column: 1 / -1;'>No events found.</p>";
+    }
+    ?>
+    </body>
+
+
+
+
+    
+    <script>
+        function scrollImages(cardIndex, direction) {
+            const container = document.getElementById(`image-container-${cardIndex}`);
+            const images = container.getElementsByTagName('img');
+            const slider = container.parentElement; 
+            const sliderWidth = slider.offsetWidth;
+            const imageWidth = images[0].offsetWidth + 10; 
+            const totalWidth = images.length * imageWidth; 
+            let currentPosition = parseFloat(container.style.transform?.replace('translateX(', '').replace('px)', '') || 0);
+            const step = imageWidth * direction; 
+            currentPosition -= step; 
+            const maxScroll = Math.min(0, -(totalWidth - sliderWidth)); 
+            if (currentPosition > 0) {
+                currentPosition = 0; 
+            }
+            if (currentPosition < maxScroll) {
+                currentPosition = maxScroll; 
+            }
+            container.style.transform = `translateX(${currentPosition}px)`;
+        }
+    </script>
+</body>
+</html>
